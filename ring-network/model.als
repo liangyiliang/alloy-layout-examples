@@ -2,7 +2,9 @@ sig Node {
 	succ : one Node,
 	inbox : set Node
 }
-fact Ring {
+
+fact {
+	// The network is a ring
 	all n : Node | Node in n.*succ
 }
 
