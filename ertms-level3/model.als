@@ -2,40 +2,44 @@ open util/ordering[VSS] as V
 open util/ordering[TTD] as D
 
 -- virtual sub-sections of the track, totally ordered
-sig VSS {}
+sig VSS {
+	ttd : one TTD
+}
+sig TTD {}
 
--- trackside train detection sections, totally ordered
-sig TTD {
-	start : one VSS,		-- first VSS of the TTD
-	end   : one VSS,		-- last VSS of the TTD
-} { end.gte[start] }
-
+-- auxiliary relations
+fun start : TTD -> VSS {
+	{ t : TTD, v : VSS | v = min[ttd.t] }
+}
+fun end : TTD -> VSS {
+	{ t : TTD, v : VSS | v = max[ttd.t] }
+}
 
 -- enforce total partition of the track into TDDs/VSSs
 fact trackSections {
-	all ttd:TTD-D/last | ttd.end.V/next = (ttd.D/next).start
+	all t : TTD | some ttd.t
+	all t : TTD | ttd.t = t.start.*V/next & t.end.*V/prev
+	all t:TTD-D/last | t.end.V/next = (t.D/next).start
 	D/first.start = V/first
 	D/last.end= V/last
 }
 
--- auxiliary relation for visualization
-fun ttd : VSS->TTD {
-	{ v : VSS, t:TTD | v in t.end.*V/prev & t.start.*V/next }
-}
-
 -- trains
 sig Train {
-	front : one VSS,
-	rear : one VSS
-} { front.gte[rear] }
-
--- auxiliary relation for visualization
-fun vss : Train -> VSS {
-	{ t : Train, v : VSS | v in t.front.*V/prev & t.rear.*V/next}
+	vss : some VSS
 }
 
+-- auxiliary relations
+fun front : Train -> VSS {
+	{ t : Train, v : VSS | v = max[t.vss] }
+}
+fun rear : Train -> VSS {
+	{ t : Train, v : VSS | v = min[t.vss] }
+}
 
-fact noTrainOverlap {
+-- enforce no train overlap
+fact trains {
+	all t : Train | t.vss = t.rear.*V/next & t.front.*V/prev
 	all disj t1,t2 : Train {
 		some t1.vss & t2.vss
 		implies t1.front = t2.rear or t1.rear = t2.front
@@ -56,4 +60,4 @@ run Example1 {
 		front = t0->v4+t1->v4+t2->v5
 		rear = t0->v2+t1->v4+t2->v4
 	}
-} for 3 TTD, 6 VSS, exactly 3 Train
+} for 3 TTD, 6 VSS, 3 Train
